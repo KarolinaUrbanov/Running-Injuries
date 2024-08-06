@@ -1,0 +1,276 @@
+---
+title: "BINF5003 Proposal"
+author: "Karolina Urbanovich - n01648630"
+date: "2023-12-15"
+output: pdf_document
+---
+
+## Libraries
+```{r}
+library(tidyverse)
+library(ggplot2)
+library(cowplot)
+library(stringr)
+library(ggfortify)
+```
+
+Dataset: Injury Prediction for Competitive Runners
+
+## Context
+In order to succeed in sport performance, staying injury free is particularly important. A lot of research has gone into rehabbing injuries once they occur, however being able to prevent them in advance would save the bodies of many athletes, ensuring they are healthy even after they stop participating in competitive sport. Injuries can definitely be hard to predict, however with recent advances in data science, there is a lot of potential in being able to map what kind of practice, or week of training, is likely to lead to an injury. This can then aid coaches in creating practice plans that are effective for their athletes, but also ensure that the athletes remain safe and healthy, especially in peak points of competition. 
+
+The following study aims to model the prediction of injuries in runners with data collected across 7 years (from 2012-2019), which therefore includes many injury events. In order to test the relevance of predictions on lower levels of aggregation, the study developed a model in which the focus lay on the training load data in the days before the injury (microlevel), and another one where the focus lay on load data in the weeks before the injury (macrolevel). The authors of this study looked to answer the research question: How accurately can we predict whether the next training session will result in injury? 
+
+The data set used for injury prediction was based off of a high-level Dutch running team.
+The data set consists of 
+> 74 samples of middle and long distance runners (competing in distances between 800m and the marathon)
+> 27 women
+> 47 men
+
+This design decision is motivated by the fact that these groups have strong endurance-based components in their training, making their training regimes comparable. At the moment of data collection, the athletes had been on the team for an average of 3.7 years, and most athletes had competed on a national, and some on an international, level. The head coach was the same through all 7 years. 
+
+The data set was organized as a training log that contains information about each training session that was filled in by each of the athletes. Running training is expressed in terms of the number of kilometers covered in different intensity zones. Alternative training is logged together with the type of training (e.g. cycling, swimming) and duration. Data was collected by global positioning watches with heart monitors that logged training duration, distance covered, and heart rate. Strength training was also logged, along with subjective information on how well the athlete felt before the session (perceived recovery), how exhausted the athlete felt upon after the sessio (perceived exertion) and how well the athlete felt they performed (perceived training success). 
+Two analytic approaches were used:
+> microlevel: training load from previous 7 days expressed as a time series with each day's training being described by 10 features
+> training week was summarized by 22 aggregate features
+
+Each row is a training event for an athlete in the 7 years, the microlevel data set has 42,766 entries, and the macrolevel data set has 42798 entries. 
+
+The results of the study was a predictive system based on bagged XGBoost machine-learning models. The results of the day approach especially reflect a reasonably high probability that our system makes correct injury predictions. The authors concluded that their machine-learning-based approach predicts a sizable portion of the injuries, in particular when the model is based on training-load data in the days preceding an injury. Overall, these results demonstrate the possible merits of using machine learning to predict injuries and tailor training programs for athletes.
+
+Instead of trying to create a predictive model I want to look at what the relationship is between injuries and certain training styles to help in creating a training plan that takes a proactive approach to injury as opposed to reactive. 
+
+
+## Preliminary Analysis
+```{r}
+day <- read.csv('day_approach_maskedID_timeseries.csv')
+week <- read.csv('week_approach_maskedID_timeseries.csv')
+
+nrow(day) #42766 entries
+nrow(week) #42798 entries
+
+sum(day$injury == 1) #583 injury events
+42766 - 583 #42183 healthy events
+
+sum(week$injury == 1) #575 injury events
+42798 - 575 #42223 healthy events
+
+#can split up the day data set into 7 different data frames
+
+day$injury <- as.factor(day$injury)
+
+
+list_of_days <- list()
+for (i in 1:7){
+  start <- (i-1)*10 + 1
+  end <- i * 10
+  df_name <- paste0('day_', i)
+  list_of_days[[df_name]] <- cbind(day[, start:end], day[, 71:73])
+}
+
+
+#looking at correlations between injury and total km run 
+t1 <- ggplot(list_of_days$day_1)+
+  geom_boxplot(aes(x=injury, y = total.km))+
+  ggtitle(str_wrap("Boxplot for Injury Based on Total Kilometers on Day 1", 20))
+
+t2 <- ggplot(list_of_days$day_2)+
+  geom_boxplot(aes(x=injury, y = total.km.1))+
+  ggtitle(str_wrap("Boxplot for Injury Based on Total Kilometers on Day 2", 20))
+
+t3 <- ggplot(list_of_days$day_3)+
+  geom_boxplot(aes(x=injury, y = total.km.2))+
+  ggtitle(str_wrap("Boxplot for Injury Based on Total Kilometers on Day 3", 20))
+
+t4 <- ggplot(list_of_days$day_4)+
+  geom_boxplot(aes(x=injury, y = total.km.3))+
+  ggtitle(str_wrap("Boxplot for Injury Based on Total Kilometers on Day 4", 20))
+
+t5 <- ggplot(list_of_days$day_5)+
+  geom_boxplot(aes(x=injury, y = total.km.4))+
+  ggtitle(str_wrap("Boxplot for Injury Based on Total Kilometers on Day 5", 20))
+
+t6 <- ggplot(list_of_days$day_6)+
+  geom_boxplot(aes(x=injury, y = total.km.5))+
+  ggtitle(str_wrap("Boxplot for Injury Based on Total Kilometers on Day 6", 20))
+
+t7 <- ggplot(list_of_days$day_7)+
+  geom_boxplot(aes(x=injury, y = total.km.6))+
+  ggtitle(str_wrap("Boxplot for Injury Based on Total Kilometers on Day 7", 20))
+
+plot_grid(t1, t2, t3, t4, t5, t6, t7)
+
+```
+
+Although the predictive model that was created by the authors of the study definitely has some potential, it would also be interesting to look at different trends in training and see what kind of training leads to potential injury. 
+
+For example, above we compared the total kilometers that are run in a day of training in terms of whether it had to with an injury event or a healthy event. On days 1, 5, and 6 it looks like injury was more likely to occur with a higher average total kilometers. This is just a preliminary look. It would also be important to look at the week dataset and see if there are any trends there. 
+
+Looking into these trends could help aid coaches (and athletes) in creating training plans that are more likely to support the athlete towards a healthy event, preventing injury, especially during high load points of the season. This type of training could aid high level teams in continuous performance and helping them always bring their best foot forward. This could also be important in preserving the bodies of athletes in their later years since they have generally been put through aggressive physical loads. 
+
+```{r}
+#Athlete ID
+colnames(day)
+unique(day$Athlete.ID)
+
+#making injury and healthy datasets 
+injuries <- filter(day, injury == 1)
+healthy <- filter(day, injury == 0)
+
+#injuries for athlete 0
+athlete0_injury <- filter(injuries, Athlete.ID == 0)
+athlete0_healthy <- filter(healthy, Athlete.ID == 0)
+athlete0 <- filter(day, Athlete.ID == 0)
+nrow(athlete0_injury) #7 injury events
+nrow(athlete0_healthy) #303 healthy events
+
+#athlete 0 events split by days
+for (i in 1:7) {
+  x <- data.frame(nr.sessions = athlete0[1:nrow(athlete0), (i-1)*10 + 1], 
+                 total.km = athlete0[1:nrow(athlete0), (i-1)*10 + 2],
+                 km.Z3.4 = athlete0[1:nrow(athlete0), (i-1)*10 + 3],
+                 km.Z5.T1.T2 = athlete0[1:nrow(athlete0), (i-1)*10 + 4],
+                 km.sprinting = athlete0[1:nrow(athlete0), (i-1)*10 + 5],
+                 strength.sessions = athlete0[1:nrow(athlete0), (i-1)*10 + 6],
+                 hours.alternative = athlete0[1:nrow(athlete0), (i-1)*10 + 7],
+                 perceived.exertion = athlete0[1:nrow(athlete0), (i-1)*10 + 8],
+                 perceived.trainingSuccess = athlete0[1:nrow(athlete0), (i-1)*10 + 9],
+                 perceived.recovery = athlete0[1:nrow(athlete0), (i-1)*10 + 10],
+                 injury = athlete0[1:nrow(athlete0), 72])
+  
+  assign(paste0('athlete0_day', i), x)
+}
+
+#pca for athlete0 on day 1
+pca_athlete0 <- prcomp(athlete0_day1[, 1:10])
+ggplot(data = data.frame(pca_athlete0$x), aes(x=PC1, y=PC2, colour = factor(athlete0_day1$injury))) +
+  geom_point()
+
+var_athlete0 <- pca_athlete0$sdev ^ 2
+
+propve_athlete0 <- var_athlete0 / sum(var_athlete0)
+
+plot(propve_athlete0, xlab = "Principal Components",
+     ylab = "Proportion of Variance Explained",
+     ylim = c(0,1), type = "b",
+     main = "Scree Plot")
+#PC1 most important, followed by PC2
+
+#pca for all athletes 
+for (i in 1:7) {
+  x <- data.frame(nr.sessions = day[1:nrow(day), (i-1)*10 + 1], 
+                 total.km = day[1:nrow(day), (i-1)*10 + 2],
+                 km.Z3.4 = day[1:nrow(day), (i-1)*10 + 3],
+                 km.Z5.T1.T2 = day[1:nrow(day), (i-1)*10 + 4],
+                 km.sprinting = day[1:nrow(day), (i-1)*10 + 5],
+                 strength.sessions = day[1:nrow(day), (i-1)*10 + 6],
+                 hours.alternative = day[1:nrow(day), (i-1)*10 + 7],
+                 perceived.exertion = day[1:nrow(day), (i-1)*10 + 8],
+                 perceived.trainingSuccess = day[1:nrow(day), (i-1)*10 + 9],
+                 perceived.recovery = day[1:nrow(day), (i-1)*10 + 10],
+                 injury = day[1:nrow(day), 72])
+  assign(paste0('day', i), x)
+}
+
+#allathlete pca for day1
+pca_day1 <- prcomp(day1[, 1:10])
+ggplot(data = data.frame(pca_day1$x), aes(x=PC1, y=PC2, colour = factor(day1$injury))) +
+  geom_point()
+var_day1 <- pca_day1$sdev ^ 2
+
+propve_day1 <- var_day1 / sum(var_day1)
+
+plot(propve_day1, xlab = "Principal Components",
+     ylab = "Proportion of Variance Explained",
+     ylim = c(0,1), type = "b",
+     main = "Scree Plot")
+
+#same but for day 2
+pca_day2 <- prcomp(day2[, 1:10])
+ggplot(data = data.frame(pca_day2$x), aes(x=PC1, y=PC2, colour = factor(day2$injury))) +
+  geom_point()
+var_day2 <- pca_day2$sdev ^ 2
+
+propve_day2 <- var_day2 / sum(var_day2)
+
+plot(propve_day2, xlab = "Principal Components",
+     ylab = "Proportion of Variance Explained",
+     ylim = c(0,1), type = "b",
+     main = "Scree Plot")
+
+#pca plots for day 1 for each variable
+possible_values <- colnames(day1)[1:10]
+
+for(cat in possible_values){
+  col_vector <- day1[[cat]]
+  
+  p <- ggplot(data = data.frame(pca_day1$x), aes(x = PC1, y = PC2)) +
+    geom_point(aes(colour = col_vector)) +
+    ggtitle(cat)
+  
+  print(p)
+}
+
+#loadings
+pca_day1$rotation[ , 1:2]
+autoplot(pca_day1, data = day1,
+         colour = "injury",
+         size = 0.5,
+         loadings = TRUE,
+         loadings.label = TRUE,
+         loadings.colour = 'blue',
+         loadings.label.size = 3)
+#total.km large negative loading on PC1
+#km.z3.4 semi negative loading on PC2
+#km.z5.t1.t2 small positive loading on PC2
+
+#finding proportion of variance for other days
+(summary(prcomp(day3[1:10])))$importance[3,2]
+(summary(prcomp(day4[1:10])))$importance[3,2]
+(summary(prcomp(day5[1:10])))$importance[3,2]
+(summary(prcomp(day6[1:10])))$importance[3,2]
+(summary(prcomp(day7[1:10])))$importance[3,2]
+#all are similar
+```
+
+##Conclusions
+Looking at the principal component analysis run on the day dataset, it looks like PC1 and PC2 predict the most variance. Specifically, on the first day of training they predict `(summary(pca_day1))$imporance[3, 2] * 100`% of the variance.
+Looking at an individual's athlete principal component analysis, similar results are seen in that PC1 and PC2 predict most of the variance. Again, the proportion of variance was similar across all days as well, so in order to simplify the calculations, only day1 for all athletes was focused on. 
+After visualizing all the PCA plots for day 1 for all 10 variables, it looks like total kilometers, time spent in Z3 and Z4 heart zones, and kilometers run in the Z5 heart zone are the most explicatory of the two principal components (as seen by the colour gradient on the graphs). In order to ensure of this, an autoplot of the loadings is generated. Looking at the loadings plot we can see that these three variables have the most effect on the principal components, with total kilometers having a large negative loading on PC1, and time spent in Z3 and Z4 has a smaller negative loading on PC2, and kilometers run in Z5 has a small positive loading on PC2.
+In the loadings plot we can also see that more injury events are concentrated around the zero values of both principal components, slightly on the positive side of PC2 and slightly on the negative side of PC1.
+This suggests that on day 1, increased total kilometers and time spent in Z3, Z4, and decreased kilometers in Z5 can cause more injuries. We can verify this by looking at the averages between healthy and injury events for these columns.
+```{r}
+mean(injuries$total.km) #average km run that lead to injury
+mean(healthy$total.km) #average km run that lead to healthy events
+
+mean(injuries$km.Z3.4) #avg km in z3 z4 -> injury
+mean(healthy$km.Z3.4) #avg km in z3 z4 -> healthy
+
+mean(injuries$km.Z5.T1.T2) #avg km in Z5 -> injury
+mean(healthy$km.Z5.T1.T2) #avg km in z5 -> healthy
+```
+Looking at the differences in these averages, it does look like these variables can affect the chance of injury. Although the third one, kilometers run in Z5 heart zone, seems to do the opposite of what originally assumed using the autoplot. Let's then only use the first two variables and filter out the whole day1 data set using these averages to see if we can decrease the number of injury events. 
+
+```{r}
+day1_few_inj <- filter(day1, total.km < 7.025, km.Z3.4 < 0.692)
+nrow(day1_few_inj)
+nrow(day1)
+injuries1 <- filter(day1_few_inj, injury == 1)
+nrow(injuries1)/nrow(day1_few_inj)
+nrow(injuries)/nrow(day)
+#this more than halved the amount of injuries, however it also got rid of a lot of healthy events
+```
+
+Filter the data set in this way did in fact decrease the proportion of injuries to healthy events by almost 20%. Although a lot of healthy events were also removed, that is infact a statistically significant change in injuries. 
+Upon completion of this analysis, it can be suggested to decrease the total kilometers run as well the time spent in a Z3 and Z4 heart zone on day 1 of the training week in order to prevent injuries, especially if the training week is leading up to competition. 
+## Future Directions
+Further studies that can be done is looking in the specific days of the training week and seeing if any one day is more important than the rest, or if all days should be decreased in the same way. 
+As well, it would be important to run a similar analysis on the week training logs to see if that has more effect on potential injury events. 
+
+## References 
+Dataset
+Lovdal, S., den Hartigh, R., Azzopardi, G. (2021). *Replication Data for: Injury Prediction in Competitive Runners with Machine Learning*(V1)[Dataset].DataverseNL. 
+https://doi.org/10.34894/UWU9PV
+
+Published Study
+https://pure.rug.nl/ws/portalfiles/portal/183763727/_15550273_International_Journal_of_Sports_Physiology_and_Performance_Injury_Prediction_in_Competitive_Runners_With_Machine_Learning.pdf 
